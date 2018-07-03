@@ -19,6 +19,8 @@ class TfEncoderDecoder(TfRNNClassifier):
 		encoder_outputs, encoder_state = self.encoding_layer(encoder_lengths)
 		decoder_outputs, decoder_logits = self.decoding_layer(decoder_lengths, encoder_state)
 
+		projection_layer = layers_core.Dense(self.vocab_size, use_bias=False)
+
 
 	def encoding_layer(self, encoder_lengths):
 		# Embedding:
