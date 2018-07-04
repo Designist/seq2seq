@@ -53,20 +53,22 @@ class TfEncoderDecoder(TfRNNClassifier):
 			dtype=tf.int32,
 			name="decoder_lengths")
 
+
 	def _init_embedding(self):
-		embedding_encoder = tf.Variable(tf.random_uniform(
+		self.embedding_encoder = tf.Variable(tf.random_uniform(
 			shape=[self.vocab_size, self.embed_dim],
 			minval=-1.0,
 			maxval=1.0,
 			name="embedding_encoder"))
-		embedded_encoder_inputs = tf.nn.embedding_lookup(embedding_encoder, self.encoder_inputs)
+		self.embedded_encoder_inputs = tf.nn.embedding_lookup(self.embedding_encoder, self.encoder_inputs)
 
-		embedding_decoder = tf.Variable(tf.random_uniform(
+		self.embedding_decoder = tf.Variable(tf.random_uniform(
 			shape=[self.vocab_size, self.embed_dim],
 			minval=-1.0,
 			maxval=1.0,
 			name="embedding_decoder"))
-		embedded_decoder_targets = tf.nn.embedding_lookup(embedding_decoder, self.decoder_targets)
+		self.embedded_decoder_targets = tf.nn.embedding_lookup(self.embedding_decoder, self.decoder_targets)
+
 
 	def encoding_layer(self):
 		# Build encoder RNN cell:
@@ -75,19 +77,20 @@ class TfEncoderDecoder(TfRNNClassifier):
 		# Run the RNN:
 		encoder_outputs, encoder_final_state = tf.nn.dynamic_rnn(
 			cell=encoder_cell,
-			inputs=embedded_encoder_inputs,
+			inputs=self.embedded_encoder_inputs,
 			sequence_length=self.encoder_lengths,
 			time_major=True,
 			dtype=tf.float32)
 
 		self.encoder_final_state = encoder_final_state
 
+
 	def decoding_layer(self):
 		# Build decoder RNN cell:
 		decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_dim, activation=self.hidden_activation)
 
 		# Helper:
-		helper = tf.contrib.seq2seq.TrainingHelper(embedded_decoder_targets, self.decoder_lengths, time_major=True)
+		helper = tf.contrib.seq2seq.TrainingHelper(self.embedded_decoder_targets, self.decoder_lengths, time_major=True)
 
 		# Projection layer:
 		projection_layer = tf.layers.Dense(self.vocab_size, use_bias=False)
@@ -107,51 +110,11 @@ class TfEncoderDecoder(TfRNNClassifier):
 		self.outputs = decoder_outputs
 		self.model = decoder_logits
 
-
-	def fit(self, X, y, **kwargs):
+	def prepare_output_data(self, y):
 		"""
-		Modified fit() for sequence modelling.
+		Modified to treat y as a sequence.
 		"""
-		if isinstance(X, pd.DataFrame):
-			X = X.values
-
-		# Incremental performance:
-		X_dev = kwargs.get('X_dev')
-		if X_dev is not None:
-			dev_iter = kwargs.get('test_iter', 10)
-
-		# Start the session:
-		tf.reset_default_graph()
-		self.sess = tf.InteractiveSession()
-
-		# Build the computation graph. This method is instantiated by
-		# individual subclasses. It defines the model.
-		self.build_graph()
-
-		# Optimizer set-up:
-		self.cost = self.get_cost_function()
-		self.optimizer = self.get_optimizer()
-
-		# Initialize the session variables:
-		self.sess.run(tf.global_variables_initializer())
-
-		# Training, full dataset for each iteration:
-		for i in range(1, self.max_iter+1):
-			loss = 0
-			for X_batch, y_batch in self.batch_iterator(X, y):
-				_, batch_loss = self.sess.run(
-					[self.optimizer, self.cost],
-					feed_dict=self.train_dict(X_batch, y_batch))
-				loss += batch_loss
-			self.errors.append(loss)
-			if X_dev is not None and i > 0 and i % dev_iter == 0:
-				self.dev_predictions.append(self.predict(X_dev))
-			if loss < self.tol:
-				self._progressbar("stopping with loss < self.tol", i)
-				break
-			else:
-				self._progressbar("loss: {}".format(loss), i)
-		return self
+		return self._convert_X(y)
 
 
 	def get_cost_function(self, **kwargs):
@@ -189,9 +152,30 @@ class TfEncoderDecoder(TfRNNClassifier):
 
 
 def simple_example():
-	vocab = ['a','b','c']
-	seq2seq = TfEncoderDecoder(vocab=vocab)
-	seq2seq.build_graph()
+	vocab = ['a', 'b', '$UNK']
+
+	train = [
+		[list('ab'), list('ba')],
+		[list('aab'), list('bba')],
+		[list('abb'), list('baa')],
+		[list('aabb'), list('bbaa')],
+		[list('ba'), list('ab')],
+		[list('baa'), list('abb')],
+		[list('bba'), list('aab')],
+		[list('bbaa'), list('aabb')]]
+
+	test = [
+		[list('aaab'), list('bbba')],
+		[list('baaa'), list('abbb')]]
+
+	seq2seq = TfEncoderDecoder(
+		vocab=vocab, max_iter=100, max_length=4)
+
+	X, y = zip(*train)
+	seq2seq.fit(X, y)
+
+	X_test, _ = zip(*test)
+	print('\nPredictions:', seq2seq.predict(X_test))
 
 if __name__ == '__main__':
 	simple_example()
