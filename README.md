@@ -1,14 +1,14 @@
 # seq2seq
 
-A simple encoder-decoder model based on @cgpotts Tensorflow RNN classifier for Stanford CS224U.
-The original CS224U repository, which contains the base model and RNN classifier, is located [here](https://github.com/cgpotts/cs224u).
-While writing this code I referenced the [official Tensorflow seq2seq tutorial](https://www.tensorflow.org/tutorials/seq2seq).
+Baseline encoder-decoder models in Tensorflow and [Dynet](https://dynet.readthedocs.io/en/latest/). Tensorflow implentation is based on @cgpotts Tensorflow RNN classifier for Stanford CS224U.
+The original CS224U repository, which contains the base model and RNN classifier, is located [here](https://github.com/cgpotts/cs224u). Dynet implementation written in collaboration with @johntzwei, and contains a hierarchical-encoder model (HRED), as described in [this paper](https://arxiv.org/pdf/1507.02221.pdf).
 
 Code was written and tested for Python 3.6.5 with dependencies:
 
 * Numpy 1.14.1
 * Pandas 0.22.0
-* Tensorflow 1.8.0
+* Tensorflow 1.9.0
+* Dynet 2.0
 
 ## Code hierarchy
 
